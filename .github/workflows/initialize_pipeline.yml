@@ -1,0 +1,237 @@
+##############################################################################################################
+#                                                                                                            #
+# initialize_pipeline.yml : Initialize the repository and also the play/build stage                          #
+# GitHub Actions                                                              #
+#                                                                                                            #
+# ####### Inputs ########                                                                                    #
+# assetIDList:      (Optional) Comma separated list of asset Ids to be Imported                              #
+# assetNameList:    (Optional) Comma separated asset name list                                               #
+# assetTypeList:    (Optional) Comma separated asset Type List. Supported: workflow,                         #
+#                   flowservice, referenceData, rest_api & project_parameter                                 #
+# devUser:          (Optional) UserID for commits and audit                                                  #
+# featureBranchName:(Mandatory) Name of the feature branch                                                   #
+# repoName:         (Mandatory) Name of the corresponding repository                                         #
+# synchProject:     (Mandatory) True to synchronize complete project.                                        #
+#                   If false, assetID and assetType must be provided                                         #
+##############################################################################################################
+
+name: Initialize Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      assetIDList:
+        description: "(Optional) Comma separated list of asset IDs to import"
+        required: false
+        default: ""
+      assetNameList:
+        description: "(Optional) Comma separated asset name list"
+        required: false
+        default: ""
+      assetTypeList:
+        description: "(Optional) Comma separated asset type list (workflow, flowservice, referenceData, rest_api, project_parameter)"
+        required: false
+        default: ""
+      devUser:
+        description: "(Optional) User ID for commits and audit"
+        required: false
+        default: ""
+      featureBranchName:
+        description: "(Mandatory) Name of the feature branch"
+        required: true
+      repoName:
+        description: "(Mandatory) Name of the corresponding repository"
+        required: true
+      synchProject:
+        description: "(Mandatory) Set to 'true' to synchronize the complete project"
+        required: true
+        default: "false"
+
+env:
+  INIT: "true"
+  REPO_PATH: "${{ vars.GIT_OWNER }}/${{ github.event.inputs.repoName }}"
+
+jobs:
+  initialize:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: "true"
+          persist-credentials: "true"
+          clean: "true"
+
+      # ── 2. Adjust variables when synchProject = true ─────────────────────────
+      - name: Adjust Variables for Full Project Sync
+        if: ${{ github.event.inputs.synchProject == 'true' }}
+        run: |
+          echo "ASSET_ID_LIST=NA"   >> $GITHUB_ENV
+          echo "ASSET_TYPE_LIST=NA" >> $GITHUB_ENV
+          echo "ASSET_NAME_LIST=NA" >> $GITHUB_ENV
+
+      - name: Set Asset Variables from Inputs
+        if: ${{ github.event.inputs.synchProject != 'true' }}
+        run: |
+          echo "ASSET_ID_LIST=${{ github.event.inputs.assetIDList }}"     >> $GITHUB_ENV
+          echo "ASSET_TYPE_LIST=${{ github.event.inputs.assetTypeList }}" >> $GITHUB_ENV
+          echo "ASSET_NAME_LIST=${{ github.event.inputs.assetNameList }}" >> $GITHUB_ENV
+
+      # ── 3. Get environment tenant details from play.yml ───────────────────────
+      - name: Get Environment Tenant Details
+        run: |
+          pwd
+          ls -ltr
+
+          echo "SOURCE_ENV_HOSTNAME=$(yq -e '.tenant.hostname'      configs/env/play.yml)" >> $GITHUB_ENV
+          echo "SOURCE_ENV_PORT=$(yq -e '.tenant.port'              configs/env/play.yml)" >> $GITHUB_ENV
+          echo "ADMIN_USER=$(yq -e '.tenant.admin_username'         configs/env/play.yml)" >> $GITHUB_ENV
+          echo "SOURCE_TYPE=$(yq -e '.tenant.type'                  configs/env/play.yml)" >> $GITHUB_ENV
+          echo "REPO_USER=$(yq -e '.repo.user'                      configs/repo.yml)"     >> $GITHUB_ENV
+
+      # ── 4. Setup Python 3.10 ─────────────────────────────────────────────────
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # ── 5. Install Python dependencies ───────────────────────────────────────
+      - name: Install Python Dependencies
+        run: |
+          python3.10 -m pip install --upgrade pip
+          pip install pynacl
+          chmod +x ./pipelines/scripts/github/encryptGithubSecret.py
+
+      # ── 6. Create repo and required branches ─────────────────────────────────
+      - name: Create Repo and Required Branches
+        env:
+          PAT:         ${{ secrets.PAT }}
+          AZURE_TOKEN: ${{ secrets.AZURE_TOKEN }}
+        run: |
+          HOME_DIR="${GITHUB_WORKSPACE}/../"
+
+          chmod +x ./pipelines/scripts/github/*.sh
+          ./pipelines/scripts/github/initializeRepo.sh \
+            "$REPO_USER" \
+            "$PAT" \
+            "$AZURE_TOKEN" \
+            "${{ github.event.inputs.repoName }}" \
+            "${{ github.event.inputs.devUser }}" \
+            "${{ github.event.inputs.featureBranchName }}" \
+            "${HOME_DIR}" \
+            debug
+
+      # ── 7. Create / Synchronize the projects ─────────────────────────────────
+      - name: Create or Synchronize Projects
+        env:
+          PAT:            ${{ secrets.PAT }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
+          echo "Target URL: ${LOCAL_DEV_URL}"
+          HOME_DIR="${GITHUB_WORKSPACE}/../"
+
+          if [ "$INIT" == "true" ]; then
+            echo "New repo created"
+
+            chmod +x ./pipelines/scripts/*.sh
+
+            project_id=$(./pipelines/scripts/createProject.sh \
+              "${LOCAL_DEV_URL}" \
+              "${ADMIN_USER}" \
+              "${ADMIN_PASSWORD}" \
+              "${{ github.event.inputs.repoName }}" 2> >(tee >&2))
+
+            echo "Captured Project ID: [${project_id}]"
+
+            ./pipelines/scripts/github/commitProjectConfig.sh \
+              "${{ github.event.inputs.repoName }}" \
+              "project-config" \
+              ".project.project-id" \
+              "${project_id}" \
+              "${HOME_DIR}" \
+              true \
+              "${{ github.event.inputs.devUser }}" \
+              "${{ github.event.inputs.featureBranchName }}" \
+              debug
+
+            ./pipelines/scripts/github/commitProjectConfig.sh \
+              "${{ github.event.inputs.repoName }}" \
+              "project-config" \
+              ".project.project-name" \
+              "${{ github.event.inputs.repoName }}" \
+              "${HOME_DIR}" \
+              true \
+              "${{ github.event.inputs.devUser }}" \
+              "${{ github.event.inputs.featureBranchName }}" \
+              debug
+
+          else
+            echo "Repo exists — checking and syncing feature branch from Prod"
+
+            if [ "${{ github.event.inputs.synchProject }}" != "true" ]; then
+              echo "Patch Initialize"
+
+              if [ -z "$ASSET_ID_LIST" ] || [ "$ASSET_ID_LIST" == "NA" ]; then
+                echo "::error::Missing parameter 'assetIDList'"
+                exit 1
+              fi
+
+              if [ -z "$ASSET_TYPE_LIST" ] || [ "$ASSET_TYPE_LIST" == "NA" ]; then
+                echo "::error::Missing parameter 'assetTypeList'"
+                exit 1
+              fi
+            else
+              echo "Project Initialize"
+            fi
+
+            rm -rf ./${{ github.event.inputs.repoName }}
+
+            git clone -b production \
+              https://${REPO_USER}:${PAT}@github.com/${REPO_USER}/${{ github.event.inputs.repoName }}.git
+
+            cd ${{ github.event.inputs.repoName }}
+
+            branchExists=$(git ls-remote --exit-code --heads origin \
+              ${{ github.event.inputs.featureBranchName }} || true)
+
+            if [ -n "${branchExists// }" ]; then
+              echo "Branch ${{ github.event.inputs.featureBranchName }} already exists"
+            else
+              echo "Branch ${{ github.event.inputs.featureBranchName }} does not exist — syncing from prod..."
+
+              chmod +x ../pipelines/scripts/github/*.sh
+              ../pipelines/scripts/github/createFeatureFromProdBranch.sh \
+                "${{ github.event.inputs.devUser }}" \
+                "${{ github.event.inputs.featureBranchName }}" \
+                "${HOME_DIR}" \
+                debug
+
+              chmod +x ../pipelines/scripts/*.sh
+              echo "Checking and creating Project..."
+
+              project_id=$(../pipelines/scripts/createProject.sh \
+                "${LOCAL_DEV_URL}" \
+                "${ADMIN_USER}" \
+                "${ADMIN_PASSWORD}" \
+                "${{ github.event.inputs.repoName }}" 2> >(tee >&2))
+
+              echo "Captured Project ID: [${project_id}]"
+              echo "Importing assets..."
+
+              ../pipelines/scripts/importAsset.sh \
+                "${LOCAL_DEV_URL}" \
+                "${ADMIN_USER}" \
+                "${ADMIN_PASSWORD}" \
+                "${{ github.event.inputs.repoName }}" \
+                "${ASSET_ID_LIST}" \
+                "${ASSET_TYPE_LIST}" \
+                "${HOME_DIR}" \
+                "${{ github.event.inputs.synchProject }}" \
+                "${SOURCE_TYPE}" \
+                true \
+                debug
+            fi
+          fi
