@@ -1,0 +1,5 @@
+tenant:
+  hostname: "psprod.int-aws-de.webmethods.io"   # webMethodsIO Integration hostname or ip address
+  port: "443"                                       # webMethodsIO Integration port
+  X-INSTANCE-API-KEY: "X-INSTANCE-API-KEY"     # webMethodsIO Integration API Key (Gen-2)
+  type: "dev"                                         #DEV

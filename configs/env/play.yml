@@ -1,0 +1,5 @@
+tenant:
+  hostname: "dev2299223.a-vir-r1.int.ipaas.automation.ibm.com"   # webMthodsIO Integration hostname or ip address
+  port: "443"                                       # webMthodsIO Integration port
+ # X-INSTANCE-API-KEY: "X-INSTANCE-API-KEY"     # webMthodsIO Integration API Key (Gen-2)
+  type: "play"                                         #Dev

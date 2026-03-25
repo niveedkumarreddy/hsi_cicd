@@ -1,0 +1,223 @@
+##############################################################################################################
+#                                                                                                            #
+# rollback_pipeline.yml : Rollback to a previous full build from archived builds                            #
+#                                                                                                            #
+# ####### Inputs ########                                                                                    #
+# rollbackDate: (Mandatory) Date to rollback to (format: YYYYMMDD or YYYYMMDD_HHMMSS)                      #
+# targetEnvironment: (Mandatory) Target environment (dev/qa/prod)                                           #
+# repoName: (Mandatory) Name of the corresponding repository                                                #
+# confirmRollback: (Mandatory) Type 'YES' to confirm rollback operation                                     #
+# listAvailableBuilds: (Optional) Set to 'true' to only list available builds without rollback             #
+##############################################################################################################
+
+trigger: none
+
+variables:
+- group: webMethodsIO_group
+- group: azure_group
+- group: github_group
+- name: repoPath
+  value: $(gitOwner)/$(repoName)
+
+pool:
+  vmImage: ubuntu-latest
+
+resources:
+  repositories:
+  - repository: projectRepo
+    type: githubenterprise
+    endpoint: github
+    name: $(repoPath)
+    ref: $(targetEnvironment)
+
+steps:
+- checkout: projectRepo
+  submodules: "true"
+  persistCredentials: "true"
+  clean: "true"
+  path: $(repoName)
+
+- checkout: self
+  submodules: "true"
+  persistCredentials: "true"
+  clean: "true"
+  path: self
+
+- script: |
+    echo "=========================================="
+    echo "Rollback Pipeline - Validation"
+    echo "=========================================="
+    echo "Target Environment: $(targetEnvironment)"
+    echo "Repository Name: $(repoName)"
+    echo "Rollback Date: $(rollbackDate)"
+    echo "List Only: $(listAvailableBuilds)"
+    echo "Confirmation: $(confirmRollback)"
+    echo "=========================================="
+    
+    # Validate repository name
+    if [ -z "$(repoName)" ]; then
+      echo "##vso[task.logissue type=error]Repository name is required"
+      exit 1
+    fi
+    
+    # If not listing only, validate other parameters
+    if [ "$(listAvailableBuilds)" != "true" ]; then
+      # Validate rollback date
+      if [ -z "$(rollbackDate)" ]; then
+        echo "##vso[task.logissue type=error]Rollback date is required"
+        exit 1
+      fi
+      
+      # Validate confirmation
+      if [ "$(confirmRollback)" != "YES" ]; then
+        echo "##vso[task.logissue type=error]Rollback not confirmed. Please type YES to proceed."
+        exit 1
+      fi
+    fi
+    
+    echo "✅ Validation passed"
+  displayName: 'Validate Input Parameters'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+
+- bash: |
+    pwd
+    cd ../self
+    pwd
+    ls -ltr
+    
+    # Get environment configuration based on targetEnvironment
+    case "$(targetEnvironment)" in
+      dev)
+        config_file="configs/env/dev.yml"
+        ;;
+      qa)
+        config_file="configs/env/qa.yml"
+        ;;
+      prod)
+        config_file="configs/env/prod.yml"
+        ;;
+      *)
+        echo "##vso[task.logissue type=error]Invalid environment: $(targetEnvironment)"
+        exit 1
+        ;;
+    esac
+    
+    echo "Using configuration file: ${config_file}"
+    
+    echo "##vso[task.setvariable variable=source_environment_hostname]`yq -e ".tenant.hostname" ${config_file}`"
+    echo "##vso[task.setvariable variable=source_environment_port]`yq -e ".tenant.port" ${config_file}`"
+    echo "##vso[task.setvariable variable=admin_user]`yq -e ".tenant.admin_username" ${config_file}`"
+    echo "##vso[task.setvariable variable=source_type]`yq -e ".tenant.type" ${config_file}`"
+    echo "##vso[task.setvariable variable=provider]`yq -e ".repo.security_provider" configs/repo.yml`"
+    
+    repoName=$(perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$(repoName)")
+    echo "##vso[build.updatebuildnumber]$(Build.BuildNumber)-${repoName}-rollback-$(targetEnvironment)"
+    echo $(System.DefaultWorkingDirectory)
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+  displayName: 'Get Environment Tenant Details'
+
+- script: |
+    echo "=========================================="
+    echo "Listing Available Builds"
+    echo "=========================================="
+    
+    repoName=$(perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$(repoName)")
+    HOME_DIR=$(System.DefaultWorkingDirectory)/../
+    
+    cd $(System.DefaultWorkingDirectory)/../
+    cd $(repoName)
+    chmod +x -R ../self/pipelines/scripts/rollback/*.sh
+    
+    ../self/pipelines/scripts/rollback/listArchivedBuilds.sh \
+      "${HOME_DIR}" \
+      "${repoName}" \
+      "$(targetEnvironment)" \
+      "$(rollbackDate)" \
+      "debug"
+  displayName: 'List Available Archived Builds'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+  condition: succeeded()
+
+- script: |
+    echo "=========================================="
+    echo "⚠️  WARNING: ROLLBACK OPERATION"
+    echo "=========================================="
+    echo "This will restore the project to a previous state."
+    echo "Target Environment: $(targetEnvironment)"
+    echo "Repository: $(repoName)"
+    echo "Rollback Date: $(rollbackDate)"
+    echo "=========================================="
+    sleep 5
+  displayName: 'Rollback Warning'
+  condition: and(succeeded(), ne(variables['listAvailableBuilds'], 'true'))
+
+- task: AzureKeyVault@2
+  displayName: 'Get Secrets from Azure Key Vault'
+  condition: and(succeeded(), ne(variables['listAvailableBuilds'], 'true'))
+  inputs:
+    azureSubscription: '$(AZURE_SERVICE_CONNECTION)'
+    KeyVaultName: '$(vaultName)'
+    SecretsFilter: '*'
+    RunAsPreJob: false
+
+- script: |
+    echo "=========================================="
+    echo "Execute Rollback"
+    echo "=========================================="
+    
+    repoName=$(perl -MURI::Escape -e 'print uri_escape($ARGV[0]);' "$(repoName)")
+    LOCAL_DEV_URL=https://$(source_environment_hostname):$(source_environment_port)
+    HOME_DIR=$(System.DefaultWorkingDirectory)/../
+    
+    cd $(System.DefaultWorkingDirectory)/../
+    cd $(repoName)
+    
+    echo "Environment URL: ${LOCAL_DEV_URL}"
+    echo "Repository: ${repoName}"
+    echo "Rollback Date: $(rollbackDate)"
+    echo "Target Environment: $(targetEnvironment)"
+    
+    ../self/pipelines/scripts/rollback/rollbackFullBuild.sh \
+      "${LOCAL_DEV_URL}" \
+      "$(admin_user)" \
+      "$(admin_password)" \
+      "${repoName}" \
+      "${HOME_DIR}" \
+      "$(rollbackDate)" \
+      "$(targetEnvironment)" \
+      "debug"
+    
+    if [ $? -eq 0 ]; then
+      echo "✅ Rollback completed successfully"
+    else
+      echo "##vso[task.logissue type=error]Rollback failed"
+      exit 1
+    fi
+  displayName: 'Execute Rollback'
+  workingDirectory: '$(System.DefaultWorkingDirectory)'
+  condition: and(succeeded(), ne(variables['listAvailableBuilds'], 'true'))
+  env:
+    admin_password: $(admin_password)
+
+- script: |
+    echo "=========================================="
+    echo "✅ ROLLBACK COMPLETED"
+    echo "=========================================="
+    echo "Environment: $(targetEnvironment)"
+    echo "Repository: $(repoName)"
+    echo "Rollback Date: $(rollbackDate)"
+    echo "=========================================="
+    echo ""
+    echo "⚠️  IMPORTANT: Please verify the rollback was successful"
+    echo "by testing the application functionality."
+    echo ""
+    echo "Next Steps:"
+    echo "1. Verify application functionality"
+    echo "2. Check all integrations are working"
+    echo "3. Review logs for any issues"
+    echo "4. Notify stakeholders of the rollback"
+    echo "=========================================="
+  displayName: 'Rollback Summary'
+  condition: and(succeeded(), ne(variables['listAvailableBuilds'], 'true'))
+
+# Made with Bob
