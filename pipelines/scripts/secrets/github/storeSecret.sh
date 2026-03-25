@@ -36,7 +36,7 @@ function echod() {
   # Get public key (to encrypt secret)
   response=$(curl -s -H "Authorization: token ${PAT}" \
     -H "Accept: application/vnd.github+json" \
-    https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/secrets/public-key)
+    https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/public-key)
 
   keyId=$(echo "$response" | jq -r '.key_id')
   keyValue=$(echo "$response" | jq -r '.key')
@@ -61,7 +61,7 @@ function echod() {
     -H "Accept: application/vnd.github+json" \
     -H "X-GitHub-Api-Version: 2022-11-28" \
     -u ${repo_user}:${PAT} \
-    "https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/secrets/${secretName}" \
+    "https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/${secretName}" \
     -d "$secretJson")
 
   if [[ "$response" == "201" || "$response" == "204" ]]; then

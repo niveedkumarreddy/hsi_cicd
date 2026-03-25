@@ -14,7 +14,7 @@ devUser=$5
 featureBranchName=$6
 HOME_DIR=$7
 debug=${@: -1}
-gitHubApiURL=https://api.github.ibm.com/
+gitHubApiURL=https://api.github.com/
 
 
     if [ -z "$repo_user" ]; then
@@ -67,8 +67,8 @@ function echod(){
 }
 
 
-name=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_user}/${repoName} | jq -r '.name')
-repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_user}/${repoName} | jq -r '.id')
+name=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.name')
+repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
       echo ${name}
       if [ "$name" == null ]
       then
@@ -77,10 +77,10 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_use
           cd ${repoName}
 
           #### Create empty repo & SECRET
-          curl -u ${repo_user}:${PAT} https://api.github.ibm.com/user/repos -d '{"name":"'${repoName}'"}'
-          repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_user}/${repoName} | jq -r '.id')
+          curl -u ${repo_user}:${PAT} https://api.github.com/user/repos -d '{"name":"'${repoName}'"}'
+          repoid=$(curl -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName} | jq -r '.id')
 
-          keyJson=$(curl -u ${repo_user}:${PAT} --location --request GET https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/secrets/public-key \
+          keyJson=$(curl -u ${repo_user}:${PAT} --location --request GET https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/public-key \
           --header 'X-GitHub-Api-Version: 2022-11-28' \
           --header 'Accept: application/vnd.github+json')
 
@@ -97,7 +97,7 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_use
             -X PUT \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/secrets/AZURE_DEVOPS_TOKEN \
+            -u ${repo_user}:${PAT} https://api.github.com/repos/${repo_user}/${repoName}/actions/secrets/AZURE_DEVOPS_TOKEN \
             -d ${secretJson}
             #-d '{"encrypted_value":"'"${AZURE_TOKEN}"'","key_id":"'"${keyId}"'"}'
           
@@ -118,7 +118,7 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_use
           git add .
           git commit -m "first commit"
           git branch -M production
-          git remote add origin https://${repo_user}:${PAT}@github.ibm.com/${repo_user}/${repoName}.git
+          git remote add origin https://${repo_user}:${PAT}@github.com/${repo_user}/${repoName}.git
           git push -u origin production
 
           git checkout -b dev production
@@ -141,18 +141,18 @@ repoid=$(curl -u ${repo_user}:${PAT} https://api.github.ibm.com/repos/${repo_use
            curl -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
-            https://api.github.ibm.com/orgs/${repo_user}/actions/permissions/repositories/${repoid}
+            https://api.github.com/orgs/${repo_user}/actions/permissions/repositories/${repoid}
 
           #Enable workflow
            curl -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
-             https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/workflows/dev.yml/enable
+             https://api.github.com/repos/${repo_user}/${repoName}/actions/workflows/dev.yml/enable
 
            curl -u ${repo_user}:${PAT} -L -X PUT \
               -H "Accept: application/vnd.github+json" \
              -H "X-GitHub-Api-Version: 2022-11-28" \
-             https://api.github.ibm.com/repos/${repo_user}/${repoName}/actions/workflows/codereview.yml/enable
+             https://api.github.com/repos/${repo_user}/${repoName}/actions/workflows/codereview.yml/enable
              
 
           echo "Repo creation done !!!"
