@@ -9,7 +9,7 @@
 devUser=$1
 buildNumber=$2
 featureBranchName=$3
-HOME_DIR=$3
+HOME_DIR=$4
 debug=${@: -1}
 
 
