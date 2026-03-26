@@ -42,13 +42,21 @@ debug=${@: -1}
 [ -z "$repoUser" ] && echo "Missing template parameter repoUser" >&2 && exit 1
 [ -z "$PAT" ] && echo "Missing template parameter PAT" >&2 && exit 1
 [ -z "$provider" ] && echo "Missing template parameter provider" >&2 && exit 1
-[ -z "$vaultName" ] && echo "Missing template parameter vaultName" >&2 && exit 1
-[ -z "$resourceGroup" ] && echo "Missing template parameter resourceGroup" >&2 && exit 1
-[ -z "$location" ] && echo "Missing template parameter location" >&2 && exit 1
-[ -z "$azure_tenant_id" ] && echo "Missing template parameter azure_tenant_id" >&2 && exit 1
-[ -z "$sp_app_id" ] && echo "Missing template parameter sp_app_id" >&2 && exit 1
-[ -z "$sp_password" ] && echo "Missing template parameter sp_password" >&2 && exit 1
-[ -z "$access_object_id" ] && echo "Missing template parameter access_object_id" >&2 && exit 1
+
+# Azure Key Vault parameters are optional (only validate if vaultName is provided)
+if [ -n "$vaultName" ] && [ "$vaultName" != "" ]; then
+  echo "Azure Key Vault integration enabled" >&2
+  [ -z "$resourceGroup" ] && echo "Missing template parameter resourceGroup (required when using Azure)" >&2 && exit 1
+  [ -z "$location" ] && echo "Missing template parameter location (required when using Azure)" >&2 && exit 1
+  [ -z "$azure_tenant_id" ] && echo "Missing template parameter azure_tenant_id (required when using Azure)" >&2 && exit 1
+  [ -z "$sp_app_id" ] && echo "Missing template parameter sp_app_id (required when using Azure)" >&2 && exit 1
+  [ -z "$sp_password" ] && echo "Missing template parameter sp_password (required when using Azure)" >&2 && exit 1
+  [ -z "$access_object_id" ] && echo "Missing template parameter access_object_id (required when using Azure)" >&2 && exit 1
+  AZURE_ENABLED=true
+else
+  echo "Azure Key Vault integration disabled - using GitHub Secrets only" >&2
+  AZURE_ENABLED=false
+fi
 
 # Debug mode
 if [ "$debug" == "debug" ]; then

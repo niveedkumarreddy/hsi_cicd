@@ -129,14 +129,7 @@ jobs:
       - name: Export Asset
         env:
           X_INSTANCE_API_KEY: ${{ secrets.INSTANCE_API_KEY }}
-          PAT:                   ${{ secrets.PAT }}
-          AZURE_VAULT_NAME:      ${{ secrets.AZURE_VAULT_NAME }}
-          AZURE_RESOURCE_GROUP:  ${{ secrets.AZURE_RESOURCE_GROUP }}
-          AZURE_LOCATION:        ${{ secrets.AZURE_LOCATION }}
-          AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-          AZURE_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
-          AZURE_ACCESS_OBJECT_ID: ${{ secrets.AZURE_ACCESS_OBJECT_ID }}
+          PAT: ${{ secrets.PAT }}
         run: |
           LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
           echo "Target URL: ${LOCAL_DEV_URL}"
