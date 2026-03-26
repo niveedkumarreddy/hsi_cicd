@@ -175,9 +175,15 @@ jobs:
         working-directory: ${{ github.event.inputs.repoName }}
         run: |
           HOME_DIR="${GITHUB_WORKSPACE}"
+          DEV_USER="${{ github.event.inputs.devUser }}"
+          # Use github actor if devUser is not provided
+          if [ -z "$DEV_USER" ]; then
+            DEV_USER="${{ github.actor }}"
+          fi
+          
           chmod +x -R ../self/pipelines/scripts/github/*.sh
           ../self/pipelines/scripts/github/commitFeatureBranch.sh \
-            "${{ github.event.inputs.devUser }}" \
+            "${DEV_USER}" \
             "${{ github.run_number }}" \
             "${{ github.event.inputs.featureBranchName }}" \
             "${HOME_DIR}" \
