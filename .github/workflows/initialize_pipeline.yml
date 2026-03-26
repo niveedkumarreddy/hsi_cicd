@@ -63,6 +63,7 @@ jobs:
           submodules: "true"
           persist-credentials: "true"
           clean: "true"
+          token: ${{ secrets.PAT }}
 
       # ── 2. Adjust variables when synchProject = true ─────────────────────────
       - name: Adjust Variables for Full Project Sync
