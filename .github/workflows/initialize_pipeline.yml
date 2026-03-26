@@ -131,7 +131,7 @@ jobs:
         run: |
           LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
           echo "Target URL: ${LOCAL_DEV_URL}"
-          HOME_DIR="${GITHUB_WORKSPACE}/../"
+          HOME_DIR="${GITHUB_WORKSPACE}"
 
           if [ "$INIT" == "true" ]; then
             echo "New repo created"
