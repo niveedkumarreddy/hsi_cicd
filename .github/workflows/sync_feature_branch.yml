@@ -166,13 +166,13 @@ jobs:
             "${REPO_USER}" \
             "${PAT}" \
             "${PROVIDER}" \
-            "${AZURE_VAULT_NAME}" \
-            "${AZURE_RESOURCE_GROUP}" \
-            "${AZURE_LOCATION}" \
-            "${AZURE_TENANT_ID}" \
-            "${AZURE_CLIENT_ID}" \
-            "${AZURE_CLIENT_SECRET}" \
-            "${AZURE_ACCESS_OBJECT_ID}" \
+            "" \  # AZURE_VAULT_NAME
+            "" \  # AZURE_RESOURCE_GROUP
+            "" \  # AZURE_LOCATION
+            "" \  # AZURE_TENANT_ID
+            "" \  # AZURE_CLIENT_ID
+            "" \  # AZURE_CLIENT_SECRET
+            "" \  # AZURE_ACCESS_OBJECT_ID
             debug
 
       # ── 8. Commit to feature branch ───────────────────────────────────────────
