@@ -154,8 +154,7 @@ jobs:
           echo "Exporting asset..."
           ./self/pipelines/scripts/exportAsset.sh \
             "${LOCAL_DEV_URL}" \
-            "${ADMIN_USER}" \
-            "${ADMIN_PASSWORD}" \
+            "${X_INSTANCE_API_KEY}" \
             "${{ github.event.inputs.repoName }}" \
             "${ASSET_ID_LIST}" \
             "${ASSET_TYPE_LIST}" \
