@@ -147,16 +147,12 @@ jobs:
 
             echo "Captured Project ID: [${project_id}]"
 
-            # Clone the newly created repository
-            echo "Cloning repository ${{ github.event.inputs.repoName }}..."
-            cd "${HOME_DIR}"
-            git clone https://${REPO_USER}:${PAT}@github.com/${REPO_USER}/${{ github.event.inputs.repoName }}.git
-            
-            # Navigate into the cloned repository
-            cd ${{ github.event.inputs.repoName }}
-            
-            # Create and checkout feature branch
-            git checkout -b ${{ github.event.inputs.featureBranchName }}
+            # Navigate to the repository directory created by initializeRepo.sh
+            echo "Using repository directory created by initializeRepo.sh..."
+            cd "${HOME_DIR}/${{ github.event.inputs.repoName }}"
+
+            # Checkout the feature branch (already created by initializeRepo.sh)
+            git checkout ${{ github.event.inputs.featureBranchName }}
 
             # Create project-config.yml with both project-id and project-name
             echo "Creating project-config.yml..."
