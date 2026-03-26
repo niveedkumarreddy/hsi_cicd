@@ -139,6 +139,7 @@ jobs:
 
             chmod +x ./pipelines/scripts/*.sh
 
+            # Create project in the target environment
             project_id=$(./pipelines/scripts/createProject.sh \
               "${LOCAL_DEV_URL}" \
               "${X_INSTANCE_API_KEY}" \
@@ -146,27 +147,35 @@ jobs:
 
             echo "Captured Project ID: [${project_id}]"
 
-            ./pipelines/scripts/github/commitProjectConfig.sh \
-              "${{ github.event.inputs.repoName }}" \
-              "project-config" \
-              ".project.project-id" \
-              "${project_id}" \
-              "${HOME_DIR}" \
-              true \
-              "${{ github.event.inputs.devUser }}" \
-              "${{ github.event.inputs.featureBranchName }}" \
-              debug
+            # Clone the newly created repository
+            echo "Cloning repository ${{ github.event.inputs.repoName }}..."
+            cd "${HOME_DIR}"
+            git clone https://${REPO_USER}:${PAT}@github.com/${REPO_USER}/${{ github.event.inputs.repoName }}.git
+            
+            # Navigate into the cloned repository
+            cd ${{ github.event.inputs.repoName }}
+            
+            # Create and checkout feature branch
+            git checkout -b ${{ github.event.inputs.featureBranchName }}
 
-            ./pipelines/scripts/github/commitProjectConfig.sh \
-              "${{ github.event.inputs.repoName }}" \
-              "project-config" \
-              ".project.project-name" \
-              "${{ github.event.inputs.repoName }}" \
-              "${HOME_DIR}" \
-              true \
-              "${{ github.event.inputs.devUser }}" \
-              "${{ github.event.inputs.featureBranchName }}" \
-              debug
+            # Create project-config.yml with both project-id and project-name
+            echo "Creating project-config.yml..."
+            touch project-config.yml
+            yq -i '.project.project-id = "'${project_id}'"' project-config.yml
+            yq -i '.project.project-name = "${{ github.event.inputs.repoName }}"' project-config.yml
+
+            echo "✅ Created project-config.yml with:"
+            echo "   - project-id: ${project_id}"
+            echo "   - project-name: ${{ github.event.inputs.repoName }}"
+
+            # Commit and push to the target repository
+            git config user.email "noemail.com"
+            git config user.name "${{ github.event.inputs.devUser }}"
+            git add project-config.yml
+            git commit -m "Initialize: add project configuration"
+            git push origin ${{ github.event.inputs.featureBranchName }}
+
+            echo "✅ Successfully pushed project-config.yml to ${{ github.event.inputs.repoName }} repository"
 
           else
             echo "Repo exists — checking and syncing feature branch from Prod"
