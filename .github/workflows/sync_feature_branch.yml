@@ -1,0 +1,234 @@
+##############################################################################################################
+#                                                                                                            #
+# sync_feature_branch.yml : Export workflow / Synchronize Feature Branch                                     #
+# GitHub Actions                                                                                             #
+#                                                                                                            #
+# ####### Inputs ########                                                                                    #
+# assetIDList:          (Optional) Comma separated list of asset IDs                                         #
+# assetNameList:        (Optional) Comma separated asset name list                                           #
+# assetTypeList:        (Optional) Comma separated asset type list                                           #
+# devUser:              (Optional) UserID for commits and audit                                              #
+# featureBranchName:    (Mandatory) Name of the feature branch                                               #
+# repoName:             (Mandatory) Name of the corresponding repository                                     #
+# synchProject:         (Mandatory) true = sync full project                                                 #
+# includeAllReferenceData: (Optional) Include all reference data on export                                   #
+##############################################################################################################
+
+name: Sync Feature Branch (Export)
+
+on:
+  workflow_dispatch:
+    inputs:
+      assetIDList:
+        description: "(Optional) Comma separated list of asset IDs"
+        required: false
+        default: ""
+      assetNameList:
+        description: "(Optional) Comma separated asset name list"
+        required: false
+        default: ""
+      assetTypeList:
+        description: "(Optional) Comma separated asset type list"
+        required: false
+        default: ""
+      devUser:
+        description: "(Optional) User ID for commits and audit"
+        required: false
+        default: ""
+      featureBranchName:
+        description: "(Mandatory) Name of the feature branch"
+        required: true
+      repoName:
+        description: "(Mandatory) Name of the project repository"
+        required: true
+      synchProject:
+        description: "(Mandatory) true to synchronize the complete project"
+        required: true
+        default: "false"
+      includeAllReferenceData:
+        description: "(Optional) Include all reference data on export"
+        required: false
+        default: "false"
+
+jobs:
+  sync-feature-branch:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout pipeline/scripts repo (self) ─────────────────────────────
+      - name: Checkout Pipeline Repo (self)
+        uses: actions/checkout@v4
+        with:
+          submodules: "true"
+          persist-credentials: "true"
+          clean: "true"
+          path: self                        # maps to ../self in original
+          token: ${{ secrets.PAT }}
+
+      # ── 2. Checkout project repo (feature branch) ────────────────────────────
+      - name: Checkout Project Repo
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.GIT_OWNER }}/${{ github.event.inputs.repoName }}
+          token: ${{ secrets.PAT }}
+          ref: ${{ github.event.inputs.featureBranchName }}
+          submodules: "true"
+          persist-credentials: "true"
+          clean: "true"
+          path: ${{ github.event.inputs.repoName }}   # maps to ../$(repoName) in original
+
+      # ── 3. Adjust variables for full project sync ─────────────────────────────
+      - name: Adjust Variables (full project sync)
+        if: ${{ github.event.inputs.synchProject == 'true' }}
+        run: |
+          echo "ASSET_ID_LIST=NA"   >> $GITHUB_ENV
+          echo "ASSET_TYPE_LIST=NA" >> $GITHUB_ENV
+          echo "ASSET_NAME_LIST=NA" >> $GITHUB_ENV
+
+      - name: Set Asset Variables from Inputs
+        if: ${{ github.event.inputs.synchProject != 'true' }}
+        run: |
+          echo "ASSET_ID_LIST=${{ github.event.inputs.assetIDList }}"     >> $GITHUB_ENV
+          echo "ASSET_TYPE_LIST=${{ github.event.inputs.assetTypeList }}" >> $GITHUB_ENV
+          echo "ASSET_NAME_LIST=${{ github.event.inputs.assetNameList }}" >> $GITHUB_ENV
+
+      # ── 4. Get environment tenant details ────────────────────────────────────
+      - name: Get Environment Tenant Details
+        working-directory: self
+        run: |
+          pwd
+          ls -ltr
+
+          echo "SOURCE_ENV_HOSTNAME=$(yq -e '.tenant.hostname'       configs/env/play.yml)" >> $GITHUB_ENV
+          echo "SOURCE_ENV_PORT=$(yq -e '.tenant.port'               configs/env/play.yml)" >> $GITHUB_ENV
+          echo "X_INSTANCE_API_KEY=$(yq -e '.tenant.X-INSTANCE-API-KEY' configs/env/play.yml)" >> $GITHUB_ENV
+          echo "SOURCE_TYPE=$(yq -e '.tenant.type'                   configs/env/play.yml)" >> $GITHUB_ENV
+          echo "REPO_USER=$(yq -e '.repo.user'                       configs/repo.yml)"     >> $GITHUB_ENV
+          echo "PROVIDER=$(yq -e '.repo.security_provider'           configs/repo.yml)"     >> $GITHUB_ENV
+
+          # URL-encode the project/repo name (replaces perl URI::Escape)
+          ENCODED_REPO=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${{ github.event.inputs.repoName }}'))")
+          echo "ENCODED_REPO_NAME=${ENCODED_REPO}" >> $GITHUB_ENV
+
+          echo "Build: ${{ github.run_number }}-${ENCODED_REPO}"
+
+      # ── 5. Setup Python 3.10 ─────────────────────────────────────────────────
+      - name: Setup Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      # ── 6. Install Python dependencies ───────────────────────────────────────
+      - name: Install Python Dependencies
+        run: |
+          python3.10 -m pip install --upgrade pip
+          pip install pynacl
+          chmod +x ./self/pipelines/scripts/github/encryptGithubSecret.py
+
+      # ── 7. Export asset ───────────────────────────────────────────────────────
+      - name: Export Asset
+        env:
+          X_INSTANCE_API_KEY: ${{ secrets.INSTANCE_API_KEY }}
+          PAT:                   ${{ secrets.PAT }}
+          AZURE_VAULT_NAME:      ${{ secrets.AZURE_VAULT_NAME }}
+          AZURE_RESOURCE_GROUP:  ${{ secrets.AZURE_RESOURCE_GROUP }}
+          AZURE_LOCATION:        ${{ secrets.AZURE_LOCATION }}
+          AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+          AZURE_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+          AZURE_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
+          AZURE_ACCESS_OBJECT_ID: ${{ secrets.AZURE_ACCESS_OBJECT_ID }}
+        run: |
+          LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
+          echo "Target URL: ${LOCAL_DEV_URL}"
+          HOME_DIR="${GITHUB_WORKSPACE}"
+          CONFIG_DIR="${HOME_DIR}self/configs/env"
+
+          chmod +x -R ./self/pipelines/scripts/*.sh
+
+          # Fetch environment types
+          echo "Fetching environment types..."
+          envTypes=$(./self/pipelines/scripts/readEnvs.sh "${CONFIG_DIR}" "${SOURCE_TYPE}")
+          echo "Envs: ${envTypes}"
+
+          # Export
+          echo "Exporting asset..."
+          ./self/pipelines/scripts/exportAsset.sh \
+            "${LOCAL_DEV_URL}" \
+            "${ADMIN_USER}" \
+            "${ADMIN_PASSWORD}" \
+            "${{ github.event.inputs.repoName }}" \
+            "${ASSET_ID_LIST}" \
+            "${ASSET_TYPE_LIST}" \
+            "${HOME_DIR}" \
+            "${{ github.event.inputs.synchProject }}" \
+            "${SOURCE_TYPE}" \
+            "${{ github.event.inputs.includeAllReferenceData }}" \
+            "${envTypes}" \
+            "${REPO_USER}" \
+            "${PAT}" \
+            "${PROVIDER}" \
+            "${AZURE_VAULT_NAME}" \
+            "${AZURE_RESOURCE_GROUP}" \
+            "${AZURE_LOCATION}" \
+            "${AZURE_TENANT_ID}" \
+            "${AZURE_CLIENT_ID}" \
+            "${AZURE_CLIENT_SECRET}" \
+            "${AZURE_ACCESS_OBJECT_ID}" \
+            debug
+
+      # ── 8. Commit to feature branch ───────────────────────────────────────────
+      - name: Commit Asset to Feature Branch
+        env:
+          PAT: ${{ secrets.PAT }}
+        working-directory: ${{ github.event.inputs.repoName }}
+        run: |
+          HOME_DIR="${GITHUB_WORKSPACE}"
+          chmod +x -R ../self/pipelines/scripts/github/*.sh
+          ../self/pipelines/scripts/github/commitFeatureBranch.sh \
+            "${{ github.event.inputs.devUser }}" \
+            "${{ github.run_number }}" \
+            "${{ github.event.inputs.featureBranchName }}" \
+            "${HOME_DIR}" \
+            debug
+
+      # ── 9. Check if test assets exist ─────────────────────────────────────────
+      - name: Evaluate Test Assets
+        working-directory: ${{ github.event.inputs.repoName }}
+        run: |
+          FILE="./resources/test/environments/${SOURCE_TYPE}.json"
+          if test -f "$FILE"; then
+            echo "Test file found: $FILE"
+            echo "FILE_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "Test file not found: $FILE"
+            echo "FILE_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      # ── 10. Upload export artifact ────────────────────────────────────────────
+      # Replaces PublishBuildArtifacts@1
+      - name: Publish Export Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ github.event.inputs.repoName }}_export
+          path: ${{ github.workspace }}/${{ github.event.inputs.repoName }}
+          retention-days: 7
+
+      # ── 11. Clean up export folder ────────────────────────────────────────────
+      # Replaces DeleteFiles@1
+      - name: Remove Export After Successful Commit
+        run: |
+          rm -rf "${{ github.workspace }}/${{ github.event.inputs.repoName }}"
+
+      # ── 12. Trigger Test pipeline ─────────────────────────────────────────────
+      # Replaces TriggerBuild@4 — triggers test.yml workflow via GitHub API
+      - name: Trigger Test Pipeline
+        if: ${{ env.FILE_EXISTS == 'true' }}
+        env:
+          GH_TOKEN: ${{ secrets.PAT }}
+        run: |
+          gh workflow run test.yml \
+            --repo "${{ vars.GIT_OWNER }}/${{ github.event.inputs.repoName }}" \
+            --ref "${{ github.event.inputs.featureBranchName }}" \
+            --field "repoName=${{ github.event.inputs.repoName }}" \
+            --field "branch=${{ github.event.inputs.featureBranchName }}" \
+            --field "environment=${SOURCE_TYPE}"
