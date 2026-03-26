@@ -87,7 +87,7 @@ jobs:
 
           echo "SOURCE_ENV_HOSTNAME=$(yq -e '.tenant.hostname'      configs/env/play.yml)" >> $GITHUB_ENV
           echo "SOURCE_ENV_PORT=$(yq -e '.tenant.port'              configs/env/play.yml)" >> $GITHUB_ENV
-          echo "ADMIN_USER=$(yq -e '.tenant.admin_username'         configs/env/play.yml)" >> $GITHUB_ENV
+          echo "X-INSTANCE-API-KEY=$(yq -e '.tenant.X-INSTANCE-API-KEY'         configs/env/play.yml)" >> $GITHUB_ENV
           echo "SOURCE_TYPE=$(yq -e '.tenant.type'                  configs/env/play.yml)" >> $GITHUB_ENV
           echo "REPO_USER=$(yq -e '.repo.user'                      configs/repo.yml)"     >> $GITHUB_ENV
 
@@ -127,7 +127,7 @@ jobs:
       - name: Create or Synchronize Projects
         env:
           PAT:            ${{ secrets.PAT }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          X_INSTANCE_API_KEY: ${{ secrets.INSTANCE_API_KEY }}
         run: |
           LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
           echo "Target URL: ${LOCAL_DEV_URL}"
@@ -140,8 +140,7 @@ jobs:
 
             project_id=$(./pipelines/scripts/createProject.sh \
               "${LOCAL_DEV_URL}" \
-              "${ADMIN_USER}" \
-              "${ADMIN_PASSWORD}" \
+              "${X_INSTANCE_API_KEY}" \
               "${{ github.event.inputs.repoName }}" 2> >(tee >&2))
 
             echo "Captured Project ID: [${project_id}]"
@@ -214,8 +213,7 @@ jobs:
 
               project_id=$(../pipelines/scripts/createProject.sh \
                 "${LOCAL_DEV_URL}" \
-                "${ADMIN_USER}" \
-                "${ADMIN_PASSWORD}" \
+                "${X_INSTANCE_API_KEY}" \
                 "${{ github.event.inputs.repoName }}" 2> >(tee >&2))
 
               echo "Captured Project ID: [${project_id}]"
@@ -223,8 +221,7 @@ jobs:
 
               ../pipelines/scripts/importAsset.sh \
                 "${LOCAL_DEV_URL}" \
-                "${ADMIN_USER}" \
-                "${ADMIN_PASSWORD}" \
+                "${X_INSTANCE_API_KEY}" \
                 "${{ github.event.inputs.repoName }}" \
                 "${ASSET_ID_LIST}" \
                 "${ASSET_TYPE_LIST}" \
