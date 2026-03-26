@@ -110,7 +110,7 @@ jobs:
           PAT:         ${{ secrets.PAT }}
           AZURE_TOKEN: ${{ secrets.AZURE_TOKEN }}
         run: |
-          HOME_DIR="${GITHUB_WORKSPACE}/../"
+          HOME_DIR="${GITHUB_WORKSPACE}"
 
           chmod +x ./pipelines/scripts/github/*.sh
           ./pipelines/scripts/github/initializeRepo.sh \
