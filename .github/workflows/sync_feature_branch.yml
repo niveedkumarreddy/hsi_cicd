@@ -141,7 +141,7 @@ jobs:
           LOCAL_DEV_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
           echo "Target URL: ${LOCAL_DEV_URL}"
           HOME_DIR="${GITHUB_WORKSPACE}"
-          CONFIG_DIR="${HOME_DIR}self/configs/env"
+          CONFIG_DIR="${HOME_DIR}/self/configs/env"
 
           chmod +x -R ./self/pipelines/scripts/*.sh
 
