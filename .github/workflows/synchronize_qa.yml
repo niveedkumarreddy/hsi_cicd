@@ -132,14 +132,14 @@ jobs:
           echo "Target URL: ${LOCAL_QA_URL}"
           HOME_DIR="${GITHUB_WORKSPACE}/"
           
-          # Set Azure parameters to empty string if not provided (following sync_feature_branch.yml pattern)
-          AZURE_VAULT_NAME="${AZURE_VAULT_NAME:-}"
-          AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
-          AZURE_LOCATION="${AZURE_LOCATION:-}"
-          AZURE_TENANT_ID="${AZURE_TENANT_ID:-}"
-          AZURE_CLIENT_ID="${AZURE_CLIENT_ID:-}"
-          AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET:-}"
-          AZURE_ACCESS_OBJECT_ID="${AZURE_ACCESS_OBJECT_ID:-}"
+          # Set Azure parameters to "NA" if not provided (scripts require non-empty values)
+          AZURE_VAULT_NAME="${AZURE_VAULT_NAME:-NA}"
+          AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-NA}"
+          AZURE_LOCATION="${AZURE_LOCATION:-NA}"
+          AZURE_TENANT_ID="${AZURE_TENANT_ID:-NA}"
+          AZURE_CLIENT_ID="${AZURE_CLIENT_ID:-NA}"
+          AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET:-NA}"
+          AZURE_ACCESS_OBJECT_ID="${AZURE_ACCESS_OBJECT_ID:-NA}"
 
           cd "${{ github.event.inputs.repoName }}"
           ls -ltr
