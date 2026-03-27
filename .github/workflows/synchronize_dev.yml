@@ -150,32 +150,25 @@ jobs:
           existingProject_id=$(yq e '.project.project-id' "./project-config.yml")
           echo "Existing Project ID: [${existingProject_id}]"
 
-          # Check and create project (skip if projectHasAPIs and synchProject are both true)
-          projectHasAPIsValue="${{ github.event.inputs.projectHasAPIs }}"
-          synchProjectValue="${{ github.event.inputs.synchProject }}"
-          
-          if [[ "$projectHasAPIsValue" == "true" ]] && [[ "$synchProjectValue" == "true" ]]; then
-            echo "Skipping project creation because project has APIs and synchProject is true"
+          # Check and create project
+          echo "Checking and creating project..."
+          if [ "${AUTH_TYPE}" == "gen2" ]; then
+            project_id=$(../self/pipelines/scripts/createProject.sh \
+              "${LOCAL_DEV_URL}" \
+              "${X_INSTANCE_API_KEY}" \
+              "${{ github.event.inputs.repoName }}" \
+              "${existingProject_id}" \
+              "debug" 2> >(tee >&2))
           else
-            echo "Checking and creating project..."
-            if [ "${AUTH_TYPE}" == "gen2" ]; then
-              project_id=$(../self/pipelines/scripts/createProject.sh \
-                "${LOCAL_DEV_URL}" \
-                "${X_INSTANCE_API_KEY}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${existingProject_id}" \
-                "debug" 2> >(tee >&2))
-            else
-              project_id=$(../self/pipelines/scripts/createProject.sh \
-                "${LOCAL_DEV_URL}" \
-                "${ADMIN_USER}" \
-                "${ADMIN_PASSWORD}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${existingProject_id}" \
-                "debug" 2> >(tee >&2))
-            fi
-            echo "Captured Project ID: [${project_id}]"
+            project_id=$(../self/pipelines/scripts/createProject.sh \
+              "${LOCAL_DEV_URL}" \
+              "${ADMIN_USER}" \
+              "${ADMIN_PASSWORD}" \
+              "${{ github.event.inputs.repoName }}" \
+              "${existingProject_id}" \
+              "debug" 2> >(tee >&2))
           fi
+          echo "Captured Project ID: [${project_id}]"
 
           # Debug info
           echo "Hostname:    ${SOURCE_ENV_HOSTNAME}"
