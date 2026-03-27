@@ -131,6 +131,15 @@ jobs:
           LOCAL_QA_URL="https://${SOURCE_ENV_HOSTNAME}:${SOURCE_ENV_PORT}"
           echo "Target URL: ${LOCAL_QA_URL}"
           HOME_DIR="${GITHUB_WORKSPACE}/"
+          
+          # Set Azure parameters to empty string if not provided (following sync_feature_branch.yml pattern)
+          AZURE_VAULT_NAME="${AZURE_VAULT_NAME:-}"
+          AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-}"
+          AZURE_LOCATION="${AZURE_LOCATION:-}"
+          AZURE_TENANT_ID="${AZURE_TENANT_ID:-}"
+          AZURE_CLIENT_ID="${AZURE_CLIENT_ID:-}"
+          AZURE_CLIENT_SECRET="${AZURE_CLIENT_SECRET:-}"
+          AZURE_ACCESS_OBJECT_ID="${AZURE_ACCESS_OBJECT_ID:-}"
 
           cd "${{ github.event.inputs.repoName }}"
           ls -ltr
@@ -189,88 +198,62 @@ jobs:
           
           if [ "$fullBuildValue" == "true" ]; then
             echo "Using Full Build Import..."
+            # Determine auth parameter based on type
             if [ "${AUTH_TYPE}" == "gen2" ]; then
-              ../self/pipelines/scripts/importAssetsWithFullBuild.sh \
-                "${LOCAL_QA_URL}" \
-                "${X_INSTANCE_API_KEY}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${ASSET_ID}" \
-                "${ASSET_TYPE}" \
-                "${HOME_DIR}" \
-                "${{ github.event.inputs.synchProject }}" \
-                "${SOURCE_TYPE}" \
-                "${{ github.event.inputs.includeAllReferenceData }}" \
-                "${PROVIDER}" \
-                "${AZURE_VAULT_NAME}" \
-                "${AZURE_RESOURCE_GROUP}" \
-                "${AZURE_LOCATION}" \
-                "${AZURE_TENANT_ID}" \
-                "${AZURE_CLIENT_ID}" \
-                "${AZURE_CLIENT_SECRET}" \
-                "${AZURE_ACCESS_OBJECT_ID}" \
-                "${{ github.event.inputs.fullBuild }}" \
-                "qa" \
-                "debug"
+              AUTH_PARAM="${X_INSTANCE_API_KEY}"
             else
-              ../self/pipelines/scripts/importAssetsWithFullBuild.sh \
-                "${LOCAL_QA_URL}" \
-                "${ADMIN_USER}" \
-                "${ADMIN_PASSWORD}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${ASSET_ID}" \
-                "${ASSET_TYPE}" \
-                "${HOME_DIR}" \
-                "${{ github.event.inputs.synchProject }}" \
-                "${SOURCE_TYPE}" \
-                "${{ github.event.inputs.includeAllReferenceData }}" \
-                "${PROVIDER}" \
-                "${AZURE_VAULT_NAME}" \
-                "${AZURE_RESOURCE_GROUP}" \
-                "${AZURE_LOCATION}" \
-                "${AZURE_TENANT_ID}" \
-                "${AZURE_CLIENT_ID}" \
-                "${AZURE_CLIENT_SECRET}" \
-                "${AZURE_ACCESS_OBJECT_ID}" \
-                "${{ github.event.inputs.fullBuild }}" \
-                "qa" \
-                "debug"
+              AUTH_PARAM="${ADMIN_USER}"
             fi
+            
+            ../self/pipelines/scripts/importAssetsWithFullBuild.sh \
+              "${LOCAL_QA_URL}" \
+              "${AUTH_PARAM}" \
+              "${{ github.event.inputs.repoName }}" \
+              "${ASSET_ID}" \
+              "${ASSET_TYPE}" \
+              "${HOME_DIR}" \
+              "${{ github.event.inputs.synchProject }}" \
+              "${SOURCE_TYPE}" \
+              "${{ github.event.inputs.includeAllReferenceData }}" \
+              "${PROVIDER}" \
+              "${AZURE_VAULT_NAME}" \
+              "${AZURE_RESOURCE_GROUP}" \
+              "${AZURE_LOCATION}" \
+              "${AZURE_TENANT_ID}" \
+              "${AZURE_CLIENT_ID}" \
+              "${AZURE_CLIENT_SECRET}" \
+              "${AZURE_ACCESS_OBJECT_ID}" \
+              "${{ github.event.inputs.fullBuild }}" \
+              "qa" \
+              "debug"
           else
             echo "Using Standard Import..."
+            # Determine auth parameter based on type
             if [ "${AUTH_TYPE}" == "gen2" ]; then
-              ../self/pipelines/scripts/importAsset.sh \
-                "${LOCAL_QA_URL}" \
-                "${X_INSTANCE_API_KEY}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${ASSET_ID}" \
-                "${ASSET_TYPE}" \
-                "${HOME_DIR}" \
-                "${{ github.event.inputs.synchProject }}" \
-                "${SOURCE_TYPE}" \
-                "${{ github.event.inputs.includeAllReferenceData }}" \
-                "debug"
+              AUTH_PARAM="${X_INSTANCE_API_KEY}"
             else
-              ../self/pipelines/scripts/importAsset.sh \
-                "${LOCAL_QA_URL}" \
-                "${ADMIN_USER}" \
-                "${ADMIN_PASSWORD}" \
-                "${{ github.event.inputs.repoName }}" \
-                "${ASSET_ID}" \
-                "${ASSET_TYPE}" \
-                "${HOME_DIR}" \
-                "${{ github.event.inputs.synchProject }}" \
-                "${SOURCE_TYPE}" \
-                "${{ github.event.inputs.includeAllReferenceData }}" \
-                "${PROVIDER}" \
-                "${AZURE_VAULT_NAME}" \
-                "${AZURE_RESOURCE_GROUP}" \
-                "${AZURE_LOCATION}" \
-                "${AZURE_TENANT_ID}" \
-                "${AZURE_CLIENT_ID}" \
-                "${AZURE_CLIENT_SECRET}" \
-                "${AZURE_ACCESS_OBJECT_ID}" \
-                "debug"
+              AUTH_PARAM="${ADMIN_USER}"
             fi
+            
+            ../self/pipelines/scripts/importAsset.sh \
+              "${LOCAL_QA_URL}" \
+              "${AUTH_PARAM}" \
+              "${{ github.event.inputs.repoName }}" \
+              "${ASSET_ID}" \
+              "${ASSET_TYPE}" \
+              "${HOME_DIR}" \
+              "${{ github.event.inputs.synchProject }}" \
+              "${SOURCE_TYPE}" \
+              "${{ github.event.inputs.includeAllReferenceData }}" \
+              "${PROVIDER}" \
+              "${AZURE_VAULT_NAME}" \
+              "${AZURE_RESOURCE_GROUP}" \
+              "${AZURE_LOCATION}" \
+              "${AZURE_TENANT_ID}" \
+              "${AZURE_CLIENT_ID}" \
+              "${AZURE_CLIENT_SECRET}" \
+              "${AZURE_ACCESS_OBJECT_ID}" \
+              "debug"
           fi
 
       # ── 6. Evaluate if test assets exist ─────────────────────────────────────
