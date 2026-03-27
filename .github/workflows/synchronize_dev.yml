@@ -96,9 +96,9 @@ jobs:
           echo "SOURCE_ENV_HOSTNAME=$(yq -e '.tenant.hostname'      configs/env/dev.yml)" >> $GITHUB_ENV
           echo "SOURCE_ENV_PORT=$(yq -e '.tenant.port'              configs/env/dev.yml)" >> $GITHUB_ENV
           
-          # Check if X-INSTANCE-API-KEY exists (Gen-2), otherwise use admin_username (Gen-1)
+          # Check if X-INSTANCE-API-KEY exists in config (Gen-2), otherwise use admin_username (Gen-1)
+          # Note: The actual secret value comes from GitHub Secrets, not the config file
           if yq -e '.tenant.X-INSTANCE-API-KEY' configs/env/dev.yml > /dev/null 2>&1; then
-            echo "X_INSTANCE_API_KEY=$(yq -e '.tenant.X-INSTANCE-API-KEY' configs/env/dev.yml)" >> $GITHUB_ENV
             echo "AUTH_TYPE=gen2" >> $GITHUB_ENV
           else
             echo "ADMIN_USER=$(yq -e '.tenant.admin_username' configs/env/dev.yml)" >> $GITHUB_ENV
@@ -117,8 +117,9 @@ jobs:
       # ── 5. Check / create project and import assets ───────────────────────────
       - name: Import Asset
         env:
-          ADMIN_PASSWORD:        ${{ secrets.ADMIN_PASSWORD }}
-          AZURE_VAULT_NAME:      ${{ secrets.AZURE_VAULT_NAME }}
+          ADMIN_PASSWORD:         ${{ secrets.ADMIN_PASSWORD }}
+          X_INSTANCE_API_KEY:     ${{ secrets.X_INSTANCE_API_KEY }}
+          AZURE_VAULT_NAME:       ${{ secrets.AZURE_VAULT_NAME }}
           AZURE_RESOURCE_GROUP:  ${{ secrets.AZURE_RESOURCE_GROUP }}
           AZURE_LOCATION:        ${{ secrets.AZURE_LOCATION }}
           AZURE_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
