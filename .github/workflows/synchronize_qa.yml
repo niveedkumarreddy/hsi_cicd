@@ -119,7 +119,7 @@ jobs:
       - name: Import Asset
         env:
           ADMIN_PASSWORD:        ${{ secrets.ADMIN_PASSWORD }}
-          X_INSTANCE_API_KEY:    ${{ secrets.X_INSTANCE_API_KEY }}
+          X_INSTANCE_API_KEY:    ${{ secrets.INSTANCE_API_KEY }}
           AZURE_VAULT_NAME:      ${{ secrets.AZURE_VAULT_NAME }}
           AZURE_RESOURCE_GROUP:  ${{ secrets.AZURE_RESOURCE_GROUP }}
           AZURE_LOCATION:        ${{ secrets.AZURE_LOCATION }}
